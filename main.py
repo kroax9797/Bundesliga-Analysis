@@ -1,0 +1,75 @@
+from utils import read_video , save_video
+from trackers import Tracker
+from tqdm import tqdm
+import cv2
+from team_assigner import TeamAssigner
+from player_ball_assigner import PlayerBallAssigner
+
+def main():
+    # Read Video 
+    video_frames = read_video('./input_videos/573e61_2.mp4')
+    print("Video read")
+
+    # Initialize Tracker
+    tracker = Tracker('models/best.pt')
+    
+    #Track the players , refereees and ball
+    tracks = tracker.get_object_tracks(video_frames , read_from_stub=True , stub_path='stubs/tracks_stubs.pkl')
+    print("tracked")
+
+    # Interpolate the ball positions : 
+    tracks['ball'] = tracker.interpolate_ball_positions(tracks['ball'])
+
+    ### Code for extracting a sample player image from the video
+    # for track_id , bbox in tracks['players'][0].items():
+    #     frame = video_frames[0]
+    #     bbox = bbox['bbox']
+
+    #     cropped_image = frame[int(bbox[1]):int(bbox[3]) , int(bbox[0]):int(bbox[2])]
+
+    #     cv2.imwrite("./output_videos/player_image.jpg" , cropped_image)
+    #     break
+
+    #Assign Team Colors
+    team_assigner = TeamAssigner()
+    team_assigner.assign_team_color(video_frames[0] , tracks['players'][0])
+    
+    
+    for frame_num, player_track in enumerate(tracks['players']):
+        for player_id, track in player_track.items():
+            team = team_assigner.get_player_team(video_frames[frame_num],track['bbox'],player_id)
+            tracks['players'][frame_num][player_id]['team'] = team 
+            tracks['players'][frame_num][player_id]['team_color'] = team_assigner.team_colors[team]
+
+    #Assign ball to player
+    player_assigner = PlayerBallAssigner()
+    ball_possesion = []
+
+    for frame_num , player_track in enumerate(tracks['players']):
+        ball_bbox = tracks['ball'][frame_num][1]['bbox']
+        assigned_player = player_assigner.assign_ball_to_player(player_track , ball_bbox)
+
+        # Check if the ball_bbox is valid
+        if ball_bbox is not None:
+            assigned_player = player_assigner.assign_ball_to_player(player_track, ball_bbox)
+
+        # Check if assigned_player is valid
+        if assigned_player != -1 and assigned_player in player_track:
+            tracks['players'][frame_num][assigned_player]['has_ball'] = True
+            ball_possesion.append(tracks['players'][frame_num][assigned_player]['team'])
+        else : 
+            ball_possesion.append(ball_possesion[-1])
+
+        
+
+    #Draw output 
+    output_video_frames = tracker.draw_annotations(video_frames , tracks , ball_possesion)
+    print("annotated")
+
+    # Save Video
+    save_video(output_video_frames , 'output_videos/output_video_test.avi')
+    print("Video saved")
+    
+
+if __name__ == "__main__":
+    main()
