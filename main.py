@@ -4,10 +4,14 @@ from tqdm import tqdm
 import cv2
 from team_assigner import TeamAssigner
 from player_ball_assigner import PlayerBallAssigner
+from camera_movement import cameraMovementEstimator
+from view_transformer import ViewTransformer
+from speed_and_distance_estimator import SpeedAndDistanceEstimator
+
 
 def main():
     # Read Video 
-    video_frames = read_video('./input_videos/573e61_2.mp4')
+    video_frames = read_video('./input_videos/08fd33_4.mp4')
     print("Video read")
 
     # Initialize Tracker
@@ -15,7 +19,25 @@ def main():
     
     #Track the players , refereees and ball
     tracks = tracker.get_object_tracks(video_frames , read_from_stub=True , stub_path='stubs/tracks_stubs.pkl')
+    
+    # Get object positions
+    tracker.add_positions_to_tracks(tracks)
     print("tracked")
+
+    #Camera movement 
+    camera_movement_estimator = cameraMovementEstimator(video_frames[0])
+    camera_movement_per_frame = camera_movement_estimator.get_camera_movement(video_frames , read_from_stubs=True , stub_path='./stubs/camera_movement.pkl')
+
+    # Adjusting positions relative to camera
+    camera_movement_estimator.adjust_positions_to_tracks(tracks , camera_movement_per_frame)
+
+    # Transform the view 
+    view_transformer = ViewTransformer()
+    view_transformer.transformed_position_to_tracks(tracks)
+
+    # Estimate speed and distance
+    speed_and_distance_estimator = SpeedAndDistanceEstimator()
+    speed_and_distance_estimator.speed_and_distance_to_track(tracks)
 
     # Interpolate the ball positions : 
     tracks['ball'] = tracker.interpolate_ball_positions(tracks['ball'])
@@ -66,10 +88,17 @@ def main():
     output_video_frames = tracker.draw_annotations(video_frames , tracks , ball_possesion)
     print("annotated")
 
+    #Draw camera movment
+    output_video_frames = camera_movement_estimator.draw_camera_movement(output_video_frames,camera_movement_per_frame)
+    print("Camera movment annotated")
+
+    # Draw speed and distance 
+    output_video_frames = speed_and_distance_estimator.draw_speed_and_distance(output_video_frames , tracks)
+
     # Save Video
-    save_video(output_video_frames , 'output_videos/output_video_test.avi')
+    save_video(output_video_frames , 'output_videos/output_video.avi')
     print("Video saved")
     
 
 if __name__ == "__main__":
-    main()
+    main() 

@@ -2,7 +2,7 @@ from ultralytics import YOLO
 import supervision as sv
 import pickle
 import os
-from utils import get_bbox_width , get_center_of_bbox
+from utils import get_bbox_width , get_center_of_bbox , get_foot_position
 import cv2
 from matplotlib import pyplot as plt
 import numpy as np
@@ -13,6 +13,18 @@ class Tracker :
     def __init__(self , model_path):
         self.model = YOLO(model_path)
         self.tracker = sv.ByteTrack()
+
+    def add_positions_to_tracks(self , tracks):
+        for object , object_tracks in tracks.items():
+            for frame_num , track in enumerate(object_tracks):
+                for track_id , track_info in track.items():
+                    bbox = track_info['bbox']
+                    if object == 'ball':
+                        position = get_center_of_bbox(bbox)
+                    else : 
+                        position = get_foot_position(bbox)
+
+                    tracks[object][frame_num][track_id]['position'] = position
 
     def interpolate_ball_positions(self, ball_positions):
         ball_positions = [x.get(1,{}).get('bbox',[]) for x in ball_positions]
@@ -25,7 +37,7 @@ class Tracker :
         return ball_positions
 
     def detect_frames(self , frames):
-        batch_size = 8
+        batch_size = 32
         detections = []
         for i in tqdm(range(0 , len(frames) , batch_size) , desc="Detecting Frames", ncols=80, mininterval=0.1):
             batch_detections = self.model.predict(frames[i:i+batch_size],conf=0.1)
