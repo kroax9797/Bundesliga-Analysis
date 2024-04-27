@@ -9,9 +9,8 @@ Welcome to the Football Player Detection and Analysis project! This repository c
 - [Installation](#installation)
 - [Components](#components)
 - [Usage](#usage)
-- [Output](#output)
 - [Contributing](#contributing)
-- [License](#license)
+- [Useful Links](#UsefulLinks)
 
 ## Introduction
 This project leverages the YOLO (You Only Look Once) model for real-time object detection to detect football players in a broadcast camera angle. Additional components include:
